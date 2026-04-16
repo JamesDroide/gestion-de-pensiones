@@ -65,7 +65,8 @@ class ListPensionersWithDebtUseCase:
                     total_consumed += _calc_meal_cost(c, pricing, pensioner.no_pension_rules) + c.extras_total
 
             total_paid = sum(p.amount for p in payments) if payments else Decimal("0.00")
-            debt_balance = total_consumed - total_paid
+            total_discount = sum(p.discount_amount for p in payments) if payments else Decimal("0.00")
+            debt_balance = total_consumed - total_paid - total_discount
 
             last_payment = payments[0] if payments else None
 
