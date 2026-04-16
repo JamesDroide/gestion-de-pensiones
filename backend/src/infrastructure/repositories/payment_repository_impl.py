@@ -25,6 +25,9 @@ class SQLAlchemyPaymentRepository(PaymentRepository):
             police_id=model.police_id,
             description=model.description,
             created_at=model.created_at,
+            discount_type=model.discount_type,
+            discount_value=model.discount_value,
+            discount_amount=model.discount_amount if model.discount_amount is not None else Decimal("0.00"),
         )
 
     async def get_by_id(self, payment_id: int) -> Optional[Payment]:
@@ -68,6 +71,9 @@ class SQLAlchemyPaymentRepository(PaymentRepository):
             pensioner_id=payment.pensioner_id,
             police_id=payment.police_id,
             description=payment.description,
+            discount_type=payment.discount_type,
+            discount_value=payment.discount_value,
+            discount_amount=payment.discount_amount,
         )
         self._session.add(model)
         await self._session.flush()

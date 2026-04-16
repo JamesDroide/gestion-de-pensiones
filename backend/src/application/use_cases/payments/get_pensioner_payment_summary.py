@@ -103,7 +103,8 @@ class GetPensionerPaymentSummaryUseCase:
             ))
 
         total_paid = sum(p.amount for p in payments) if payments else Decimal("0.00")
-        debt_balance = total_consumed - total_paid
+        total_discount = sum(p.discount_amount for p in payments) if payments else Decimal("0.00")
+        debt_balance = total_consumed - total_paid - total_discount
 
         payment_records = [
             PaymentRecordDTO(
@@ -112,6 +113,9 @@ class GetPensionerPaymentSummaryUseCase:
                 payment_type=p.payment_type.value,
                 description=p.description,
                 created_at=p.created_at,
+                discount_type=p.discount_type,
+                discount_value=p.discount_value,
+                discount_amount=p.discount_amount,
             )
             for p in payments
         ]

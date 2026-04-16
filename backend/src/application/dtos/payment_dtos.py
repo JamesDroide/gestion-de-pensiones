@@ -1,7 +1,7 @@
 """DTOs para el módulo de Cobros (pagos de pensionistas y policías)."""
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel
 from src.domain.entities.payment import PaymentType
 from src.application.dtos.consumption_dtos import ExtraItemDTO
@@ -11,6 +11,9 @@ class RegisterPaymentDTO(BaseModel):
     amount: Decimal
     payment_type: PaymentType = PaymentType.CASH
     description: Optional[str] = None
+    discount_type: Optional[Literal['percent', 'fixed']] = None
+    discount_value: Optional[Decimal] = None
+    discount_amount: Optional[Decimal] = None   # precalculado en el frontend sobre la deuda
 
 
 class PaymentRecordDTO(BaseModel):
@@ -19,6 +22,9 @@ class PaymentRecordDTO(BaseModel):
     payment_type: str
     description: Optional[str]
     created_at: datetime
+    discount_type: Optional[str] = None
+    discount_value: Optional[Decimal] = None
+    discount_amount: Decimal = Decimal("0.00")
 
     model_config = {"from_attributes": True}
 
@@ -128,3 +134,6 @@ class RegisterPolicePaymentDTO(BaseModel):
     breakfast_tickets: int = 0
     lunch_tickets: int = 0
     description: Optional[str] = None
+    discount_type: Optional[Literal['percent', 'fixed']] = None
+    discount_value: Optional[Decimal] = None
+    discount_amount: Optional[Decimal] = None   # precalculado en el frontend sobre la deuda

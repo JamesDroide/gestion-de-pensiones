@@ -12,6 +12,7 @@ import {
   AlertCircle,
   CheckCircle2,
   RefreshCw,
+  Tag,
 } from 'lucide-react'
 import type { PensionerWithDebt } from '../types'
 import { usePensionerPaymentSummary, useRegisterPensionerPayment } from '../hooks/usePayments'
@@ -107,6 +108,10 @@ export function PaymentModal({ pensioner, onClose }: Props) {
   const [payMode, setPayMode] = useState<'cash' | 'yape'>('cash')
   const [showPayForm, setShowPayForm] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
+  const [showDiscountPanel, setShowDiscountPanel] = useState(false)
+  const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('percent')
+  const [discountValue, setDiscountValue] = useState('')
+  const [discountApplied, setDiscountApplied] = useState(false)
 
   const { data: summary, isLoading, isError, refetch, isFetching } = usePensionerPaymentSummary(
     pensioner.pensioner_id,
@@ -138,15 +143,66 @@ export function PaymentModal({ pensioner, onClose }: Props) {
   const totalConsumed = n(summary?.total_consumed)
   const totalPaid = n(summary?.total_paid)
 
+  // Preview: solo mientras el panel está abierto
+  const discountPreview = showDiscountPanel && discountValue && parseFloat(discountValue) > 0
+    ? discountType === 'percent'
+      ? debtBalance * parseFloat(discountValue) / 100
+      : Math.min(parseFloat(discountValue), debtBalance)
+    : 0
+
+  // Monto descontado: calculado directamente (no depende de showDiscountPanel)
+  const discountAmount = discountApplied && discountValue && parseFloat(discountValue) > 0
+    ? discountType === 'percent'
+      ? debtBalance * parseFloat(discountValue) / 100
+      : Math.min(parseFloat(discountValue), debtBalance)
+    : 0
+  const finalAmount = Math.max(0, debtBalance - discountAmount)
+
+  function resetDiscountForm() {
+    setShowDiscountPanel(false)
+    setDiscountType('percent')
+    setDiscountValue('')
+    setDiscountApplied(false)
+  }
+
+  function handleApplyDiscount() {
+    setDiscountApplied(true)
+    setShowDiscountPanel(false)
+  }
+
+  function handleRemoveDiscount() {
+    setDiscountApplied(false)
+    setDiscountValue('')
+    setShowDiscountPanel(false)
+  }
+
+  function handleOpenPayForm() {
+    setPayAmount(finalAmount.toFixed(2))
+    setShowPayForm(true)
+  }
+
   function handlePay() {
-    const amount = parseFloat(payAmount)
+    const amount = parseFloat(payAmount) || finalAmount
     if (!amount || amount <= 0) return
     registerPayment.mutate(
-      { pensionerId: pensioner.pensioner_id, input: { amount, payment_type: payMode } },
+      { pensionerId: pensioner.pensioner_id, input: {
+        amount,
+        payment_type: payMode,
+        ...(discountApplied && discountValue && parseFloat(discountValue) > 0 && {
+          discount_type: discountType,
+          discount_value: parseFloat(discountValue),
+          discount_amount: discountAmount,
+        }),
+      }},
       {
         onSuccess: () => {
-          setSuccessMsg(`Pago de S/ ${amount.toFixed(2)} registrado`)
+          setSuccessMsg(
+            discountAmount > 0
+              ? `Pago registrado: S/ ${amount.toFixed(2)} con descuento de S/ ${discountAmount.toFixed(2)}`
+              : `Pago de S/ ${amount.toFixed(2)} registrado`
+          )
           setPayAmount('')
+          resetDiscountForm()
           setShowPayForm(false)
           setTimeout(() => setSuccessMsg(''), 4000)
         },
@@ -461,6 +517,15 @@ export function PaymentModal({ pensioner, onClose }: Props) {
                               {formatDateTime(p.created_at)}
                               {p.description && ` — ${p.description}`}
                             </p>
+                            {n(p.discount_amount) > 0 && (
+                              <p style={{ fontSize: '11px', color: '#D97706', margin: '2px 0 0', fontWeight: 600 }}>
+                                Desc. aplicado: - S/ {n(p.discount_amount).toFixed(2)}
+                                {' '}
+                                ({p.discount_type === 'percent'
+                                  ? `${n(p.discount_value ?? undefined).toFixed(0)}%`
+                                  : 'precio fijo'})
+                              </p>
+                            )}
                           </div>
                         </div>
                         <span style={{ fontSize: '14px', fontWeight: 700, color: '#16A34A' }}>
@@ -498,49 +563,177 @@ export function PaymentModal({ pensioner, onClose }: Props) {
             flexShrink: 0,
           }}>
             {!showPayForm ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <TrendingUp style={{ width: '18px', height: '18px', color: '#6366F1' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {/* Fila principal */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <TrendingUp style={{ width: '18px', height: '18px', color: '#6366F1' }} />
+                    </div>
+                    <div>
+                      <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.07em', color: '#94A3B8', margin: '0 0 2px' }}>
+                        Deuda actual
+                      </p>
+                      <p style={{ fontSize: '11px', color: '#64748B', margin: 0 }}>{monthLabel(month)}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.07em', color: '#94A3B8', margin: '0 0 2px' }}>
-                      Deuda actual
-                    </p>
-                    <p style={{ fontSize: '11px', color: '#64748B', margin: 0 }}>
-                      {monthLabel(month)}
-                    </p>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {/* Monto — tachado si hay descuento */}
+                    <div style={{ textAlign: 'right' as const }}>
+                      {discountApplied && (
+                        <p style={{ fontSize: '12px', color: '#94A3B8', textDecoration: 'line-through', margin: '0 0 2px', fontWeight: 600 }}>
+                          S/ {debtBalance.toFixed(2)}
+                        </p>
+                      )}
+                      <span style={{ fontSize: '24px', fontWeight: 800, color: discountApplied ? '#10B981' : (debtBalance > 0 ? '#EF4444' : '#10B981'), letterSpacing: '-0.03em' }}>
+                        S/ {Math.max(0, finalAmount).toFixed(2)}
+                      </span>
+                    </div>
+
+                    {/* Botón descuento */}
+                    {debtBalance > 0 && (
+                      <button type="button"
+                        onClick={() => discountApplied ? handleRemoveDiscount() : setShowDiscountPanel(v => !v)}
+                        title={discountApplied ? 'Quitar descuento' : 'Aplicar descuento'}
+                        style={{
+                          width: '36px', height: '36px', borderRadius: '10px', border: '1.5px solid',
+                          borderColor: discountApplied ? '#FCA5A5' : (showDiscountPanel ? '#F59E0B' : '#E2E8F0'),
+                          backgroundColor: discountApplied ? '#FEF2F2' : (showDiscountPanel ? '#FFFBEB' : '#fff'),
+                          color: discountApplied ? '#EF4444' : (showDiscountPanel ? '#D97706' : '#94A3B8'),
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'all 150ms',
+                        }}
+                      >
+                        <Tag style={{ width: '15px', height: '15px' }} />
+                      </button>
+                    )}
+
+                    {/* Registrar Pago */}
+                    {debtBalance > 0 && (
+                      <button type="button" onClick={handleOpenPayForm}
+                        style={{
+                          backgroundColor: '#10B981', color: '#fff', border: 'none',
+                          borderRadius: '12px', padding: '10px 22px',
+                          fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: '8px',
+                          transition: 'background-color 150ms',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#059669' }}
+                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#10B981' }}
+                      >
+                        <Banknote style={{ width: '16px', height: '16px' }} />
+                        Registrar Pago
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <span style={{ fontSize: '24px', fontWeight: 800, color: debtBalance > 0 ? '#EF4444' : '#10B981', letterSpacing: '-0.03em' }}>
-                    S/ {Math.max(0, debtBalance).toFixed(2)}
-                  </span>
-                  {debtBalance > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowPayForm(true)}
+
+                {/* Panel de descuento (desplegable) */}
+                {showDiscountPanel && !discountApplied && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' as const, padding: '10px 12px', backgroundColor: '#FFFBEB', borderRadius: '10px', border: '1px solid #FDE68A' }}>
+                    {(['percent', 'fixed'] as const).map(dt => (
+                      <button key={dt} type="button"
+                        onClick={() => { setDiscountType(dt); setDiscountValue('') }}
+                        style={{
+                          height: '38px', padding: '0 14px', border: '1.5px solid',
+                          borderColor: discountType === dt ? '#F59E0B' : '#E2E8F0',
+                          borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                          backgroundColor: discountType === dt ? '#FEF3C7' : '#fff',
+                          color: discountType === dt ? '#D97706' : '#64748B',
+                          transition: 'all 120ms',
+                        }}
+                      >
+                        {dt === 'percent' ? '%' : 'S/'}
+                      </button>
+                    ))}
+
+                    <div style={{ position: 'relative' as const, flex: 1, minWidth: '100px' }}>
+                      <span style={{ position: 'absolute' as const, left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 600, color: '#D97706' }}>
+                        {discountType === 'percent' ? '%' : 'S/'}
+                      </span>
+                      <input
+                        type="number" min="0.01"
+                        step={discountType === 'percent' ? '1' : '0.01'}
+                        max={discountType === 'percent' ? '100' : undefined}
+                        placeholder={discountType === 'percent' ? '10' : '5.00'}
+                        value={discountValue}
+                        onChange={e => setDiscountValue(e.target.value)}
+                        autoFocus
+                        style={{
+                          width: '100%', boxSizing: 'border-box' as const,
+                          paddingLeft: '28px', paddingRight: '10px',
+                          height: '38px', border: '1.5px solid #FDE68A',
+                          borderRadius: '8px', fontSize: '14px', fontWeight: 600,
+                          color: '#92400E', outline: 'none', backgroundColor: '#FFFBEB',
+                        }}
+                        onFocus={e => { e.target.style.borderColor = '#F59E0B' }}
+                        onBlur={e => { e.target.style.borderColor = '#FDE68A' }}
+                      />
+                    </div>
+
+                    {discountPreview > 0 && (
+                      <span style={{ fontSize: '12px', color: '#D97706', fontWeight: 700, whiteSpace: 'nowrap' as const }}>
+                        → S/ {Math.max(0, debtBalance - discountPreview).toFixed(2)}
+                      </span>
+                    )}
+
+                    <button type="button" onClick={handleApplyDiscount}
+                      disabled={discountPreview <= 0}
                       style={{
-                        backgroundColor: '#10B981', color: '#fff', border: 'none',
-                        borderRadius: '12px', padding: '10px 22px',
-                        fontSize: '13px', fontWeight: 700, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        transition: 'background-color 150ms',
+                        height: '38px', padding: '0 16px', border: 'none',
+                        borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                        cursor: discountPreview <= 0 ? 'not-allowed' : 'pointer',
+                        backgroundColor: discountPreview > 0 ? '#F59E0B' : '#E2E8F0',
+                        color: discountPreview > 0 ? '#fff' : '#94A3B8',
+                        transition: 'background-color 150ms', whiteSpace: 'nowrap' as const,
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#059669' }}
-                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#10B981' }}
+                      onMouseEnter={e => { if (discountPreview > 0) e.currentTarget.style.backgroundColor = '#D97706' }}
+                      onMouseLeave={e => { if (discountPreview > 0) e.currentTarget.style.backgroundColor = '#F59E0B' }}
                     >
-                      <Banknote style={{ width: '16px', height: '16px' }} />
-                      Registrar Pago
+                      Aplicar
                     </button>
-                  )}
-                </div>
+
+                    <button type="button" onClick={() => setShowDiscountPanel(false)}
+                      style={{
+                        height: '38px', padding: '0 12px', border: '1.5px solid #E2E8F0',
+                        borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                        cursor: 'pointer', backgroundColor: '#fff', color: '#64748B',
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+
+                {/* Indicador descuento aplicado */}
+                {discountApplied && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
+                    <Tag style={{ width: '13px', height: '13px', color: '#10B981', flexShrink: 0 }} />
+                    <span style={{ fontSize: '12px', color: '#15803D', fontWeight: 600, flex: 1 }}>
+                      Descuento aplicado: - S/ {discountAmount.toFixed(2)}
+                      {discountType === 'percent' ? ` (${discountValue}%)` : ' (precio fijo)'}
+                    </span>
+                    <button type="button" onClick={handleRemoveDiscount}
+                      style={{
+                        fontSize: '11px', fontWeight: 600, color: '#EF4444',
+                        border: '1px solid #FECACA', borderRadius: '6px',
+                        padding: '2px 8px', cursor: 'pointer', backgroundColor: '#FEF2F2',
+                      }}
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               /* Formulario de pago */
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+                {/* ── Fila principal: monto + tipo + botones ── */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  {/* Monto */}
+
+                  {/* Monto a pagar */}
                   <div style={{ flex: 1 }}>
                     <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', display: 'block', marginBottom: '6px', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>
                       Monto a pagar
@@ -551,16 +744,15 @@ export function PaymentModal({ pensioner, onClose }: Props) {
                         type="number"
                         min="0.01"
                         step="0.01"
-                        placeholder={debtBalance > 0 ? debtBalance.toFixed(2) : '0.00'}
+                        placeholder={finalAmount > 0 ? finalAmount.toFixed(2) : '0.00'}
                         value={payAmount}
                         onChange={e => setPayAmount(e.target.value)}
                         style={{
                           width: '100%', boxSizing: 'border-box' as const,
                           paddingLeft: '32px', paddingRight: '12px',
                           height: '44px', border: '1.5px solid #E2E8F0',
-                          borderRadius: '10px', fontSize: '15px', fontWeight: 600,
-                          color: '#0F172A', outline: 'none',
-                          backgroundColor: '#fff',
+                          borderRadius: '10px', fontSize: '15px', fontWeight: 700,
+                          color: '#0F172A', outline: 'none', backgroundColor: '#fff',
                         }}
                         onFocus={e => { e.target.style.borderColor = '#6366F1' }}
                         onBlur={e => { e.target.style.borderColor = '#E2E8F0' }}
@@ -568,17 +760,14 @@ export function PaymentModal({ pensioner, onClose }: Props) {
                     </div>
                   </div>
 
-                  {/* Modalidad de pago */}
+                  {/* Tipo de pago */}
                   <div>
                     <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', display: 'block', marginBottom: '6px', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>
                       Tipo
                     </label>
                     <div style={{ display: 'flex', gap: '6px' }}>
                       {(['cash', 'yape'] as const).map(type => (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => setPayMode(type)}
+                        <button key={type} type="button" onClick={() => setPayMode(type)}
                           style={{
                             height: '44px', padding: '0 14px', border: '1.5px solid',
                             borderColor: payMode === type ? '#6366F1' : '#E2E8F0',
@@ -595,51 +784,42 @@ export function PaymentModal({ pensioner, onClose }: Props) {
                     </div>
                   </div>
 
-                  {/* Acciones */}
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', paddingBottom: '0px' }}>
-                    <button
-                      type="button"
-                      onClick={() => { setShowPayForm(false); setPayAmount('') }}
+                  {/* Cancelar + Confirmar */}
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                    <button type="button"
+                      onClick={() => { setShowPayForm(false); setPayAmount(''); resetDiscountForm() }}
                       style={{
                         height: '44px', padding: '0 16px', border: '1.5px solid #E2E8F0',
                         borderRadius: '10px', fontSize: '12px', fontWeight: 600,
-                        color: '#64748B', cursor: 'pointer', backgroundColor: '#fff',
-                        marginTop: '22px',
+                        color: '#64748B', cursor: 'pointer', backgroundColor: '#fff', marginTop: '22px',
                       }}
                     >
                       Cancelar
                     </button>
-                    <button
-                      type="button"
-                      onClick={handlePay}
-                      disabled={!payAmount || parseFloat(payAmount) <= 0 || registerPayment.isPending}
+                    <button type="button" onClick={handlePay}
+                      disabled={registerPayment.isPending || (parseFloat(payAmount) || 0) <= 0}
                       style={{
                         height: '44px', padding: '0 20px',
                         backgroundColor: '#10B981', color: '#fff', border: 'none',
                         borderRadius: '10px', fontSize: '13px', fontWeight: 700,
-                        cursor: !payAmount || parseFloat(payAmount) <= 0 || registerPayment.isPending ? 'not-allowed' : 'pointer',
-                        opacity: !payAmount || parseFloat(payAmount) <= 0 || registerPayment.isPending ? 0.6 : 1,
-                        marginTop: '22px',
-                        transition: 'background-color 150ms',
+                        cursor: registerPayment.isPending || (parseFloat(payAmount) || 0) <= 0 ? 'not-allowed' : 'pointer',
+                        opacity: registerPayment.isPending || (parseFloat(payAmount) || 0) <= 0 ? 0.6 : 1,
+                        marginTop: '22px', transition: 'background-color 150ms',
                       }}
                       onMouseEnter={e => { if (!registerPayment.isPending) e.currentTarget.style.backgroundColor = '#059669' }}
                       onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#10B981' }}
                     >
-                      {registerPayment.isPending ? 'Guardando...' : 'Confirmar Pago'}
+                      {registerPayment.isPending ? 'Guardando...' : `Confirmar S/ ${(parseFloat(payAmount) || 0).toFixed(2)}`}
                     </button>
                   </div>
                 </div>
 
-                {/* Aviso si pago parcial */}
-                {payAmount && parseFloat(payAmount) > 0 && parseFloat(payAmount) < debtBalance && (
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    backgroundColor: '#FFFBEB', border: '1px solid #FDE68A',
-                    borderRadius: '8px', padding: '8px 12px',
-                  }}>
+                {/* Aviso deuda parcial */}
+                {(parseFloat(payAmount) || 0) > 0 && (parseFloat(payAmount) || 0) < finalAmount && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '8px', padding: '8px 12px' }}>
                     <AlertCircle style={{ width: '14px', height: '14px', color: '#D97706', flexShrink: 0 }} />
                     <p style={{ fontSize: '11.5px', color: '#92400E', margin: 0 }}>
-                      Queda pendiente <strong>S/ {(debtBalance - parseFloat(payAmount)).toFixed(2)}</strong> que se registrará como deuda.
+                      Queda pendiente <strong>S/ {(finalAmount - (parseFloat(payAmount) || 0)).toFixed(2)}</strong> que se registrará como deuda.
                     </p>
                   </div>
                 )}

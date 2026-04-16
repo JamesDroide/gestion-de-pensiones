@@ -41,12 +41,15 @@ export function generatePensionerPDF(summary: PensionerPaymentSummary): void {
 
   // ── KPI boxes ───────────────────────────────────────────────────────────────
   const debt = n(summary.debt_balance)
+  const totalDiscount = summary.payments.reduce((acc, p) => acc + n(p.discount_amount), 0)
   const kpis = [
     { label: 'Total consumido', value: `S/ ${n(summary.total_consumed).toFixed(2)}`, color: [15,23,42] as [number,number,number] },
     { label: 'Total pagado',    value: `S/ ${n(summary.total_paid).toFixed(2)}`,     color: [16,185,129] as [number,number,number] },
+    ...(totalDiscount > 0 ? [{ label: 'Descuento total', value: `- S/ ${totalDiscount.toFixed(2)}`, color: [217,119,6] as [number,number,number] }] : []),
     { label: 'Deuda pendiente', value: `S/ ${Math.max(0,debt).toFixed(2)}`,           color: debt > 0 ? [239,68,68] as [number,number,number] : [16,185,129] as [number,number,number] },
   ]
-  const boxW = (pageW - 28 - 8) / 3
+  const cols = kpis.length
+  const boxW = (pageW - 28 - (cols - 1) * 4) / cols
   kpis.forEach((k, i) => {
     const x = 14 + i * (boxW + 4)
     doc.setFillColor(248, 250, 252)
@@ -93,13 +96,15 @@ export function generatePensionerPDF(summary: PensionerPaymentSummary): void {
     doc.setFont('helvetica', 'bold')
     doc.text('PAGOS REGISTRADOS', 14, finalY)
 
+    const hasDiscount = summary.payments.some(p => n(p.discount_amount) > 0)
     autoTable(doc, {
       startY: finalY + 3,
-      head: [['Fecha', 'Tipo', 'Monto']],
+      head: [['Fecha', 'Tipo', 'Monto', ...(hasDiscount ? ['Descuento'] : [])]],
       body: summary.payments.map(p => [
         new Date(p.created_at).toLocaleDateString('es-PE'),
         p.payment_type === 'cash' ? 'Efectivo' : 'Yape',
         `S/ ${n(p.amount).toFixed(2)}`,
+        ...(hasDiscount ? [n(p.discount_amount) > 0 ? `- S/ ${n(p.discount_amount).toFixed(2)}` : '—'] : []),
       ]),
       headStyles: { fillColor: [16, 185, 129], textColor: 255, fontSize: 8, fontStyle: 'bold' },
       bodyStyles: { fontSize: 8, textColor: [30, 41, 59] },
@@ -130,12 +135,15 @@ export function generatePolicePDF(summary: PolicePaymentSummary): void {
   doc.text(`Generado: ${new Date().toLocaleDateString('es-PE')}`, pageW - 14, 19, { align: 'right' })
 
   const debt = n(summary.debt_balance)
+  const totalDiscountPolice = summary.payments.reduce((acc, p) => acc + n(p.discount_amount), 0)
   const kpis = [
     { label: 'Total consumido', value: `S/ ${n(summary.total_consumed).toFixed(2)}`, color: [15,23,42] as [number,number,number] },
     { label: 'Total pagado',    value: `S/ ${n(summary.total_paid).toFixed(2)}`,     color: [16,185,129] as [number,number,number] },
+    ...(totalDiscountPolice > 0 ? [{ label: 'Descuento total', value: `- S/ ${totalDiscountPolice.toFixed(2)}`, color: [217,119,6] as [number,number,number] }] : []),
     { label: 'Deuda pendiente', value: `S/ ${Math.max(0,debt).toFixed(2)}`,           color: debt > 0 ? [239,68,68] as [number,number,number] : [16,185,129] as [number,number,number] },
   ]
-  const boxW = (pageW - 28 - 8) / 3
+  const colsPolice = kpis.length
+  const boxW = (pageW - 28 - (colsPolice - 1) * 4) / colsPolice
   kpis.forEach((k, i) => {
     const x = 14 + i * (boxW + 4)
     doc.setFillColor(248, 250, 252)
@@ -179,13 +187,16 @@ export function generatePolicePDF(summary: PolicePaymentSummary): void {
     doc.setTextColor(100, 116, 139)
     doc.setFont('helvetica', 'bold')
     doc.text('PAGOS REGISTRADOS', 14, finalY)
+
+    const hasDiscountPolice = summary.payments.some(p => n(p.discount_amount) > 0)
     autoTable(doc, {
       startY: finalY + 3,
-      head: [['Fecha', 'Tipo', 'Monto']],
+      head: [['Fecha', 'Tipo', 'Monto', ...(hasDiscountPolice ? ['Descuento'] : [])]],
       body: summary.payments.map(p => [
         new Date(p.created_at).toLocaleDateString('es-PE'),
         p.payment_type === 'cash' ? 'Efectivo' : p.payment_type === 'yape' ? 'Yape' : 'Tickets',
         `S/ ${n(p.amount).toFixed(2)}`,
+        ...(hasDiscountPolice ? [n(p.discount_amount) > 0 ? `- S/ ${n(p.discount_amount).toFixed(2)}` : '—'] : []),
       ]),
       headStyles: { fillColor: [16, 185, 129], textColor: 255, fontSize: 8, fontStyle: 'bold' },
       bodyStyles: { fontSize: 8, textColor: [30, 41, 59] },

@@ -34,3 +34,12 @@ export function useUpdatePensioner() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: PENSIONERS_KEY }),
   })
 }
+
+export function useDeletePensioner() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, pensioner_type }: { id: number; pensioner_type: 'civil' | 'police' }) =>
+      pensionersService.delete(id, pensioner_type),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: PENSIONERS_KEY }),
+  })
+}

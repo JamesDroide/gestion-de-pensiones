@@ -68,6 +68,11 @@ export const pensionersService = {
     }
   },
 
+  async delete(id: number, pensioner_type: 'civil' | 'police'): Promise<void> {
+    const endpoint = pensioner_type === 'civil' ? `/pensioners/${id}` : `/police/${id}`
+    await apiClient.delete(endpoint)
+  },
+
   async update(
     id: number,
     pensioner_type: 'civil' | 'police',

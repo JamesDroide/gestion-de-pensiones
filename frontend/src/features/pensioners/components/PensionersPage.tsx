@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Plus, Search, Pencil, Users, Shield, UserCheck, History } from 'lucide-react'
-import { usePensioners, useCreatePensioner, useUpdatePensioner } from '../hooks/usePensioners'
+import { Plus, Search, Pencil, Users, Shield, UserCheck, History, Trash2 } from 'lucide-react'
+import { usePensioners, useCreatePensioner, useUpdatePensioner, useDeletePensioner } from '../hooks/usePensioners'
 import { PensionerFormModal } from './PensionerFormModal'
+import { DeleteConfirmModal } from './DeleteConfirmModal'
 import { ConsumptionHistoryModal } from '@/features/consumption/components/ConsumptionHistoryModal'
 import { PageHeader } from '@/shared/components/ui/PageHeader'
 import { StatusBadge } from '@/shared/components/ui/StatusBadge'
@@ -30,11 +31,13 @@ export function PensionersPage() {
   const { data: pensioners = [], isLoading } = usePensioners()
   const createMutation = useCreatePensioner()
   const updateMutation = useUpdatePensioner()
+  const deleteMutation = useDeletePensioner()
 
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Pensionista | undefined>()
   const [historyTarget, setHistoryTarget] = useState<Pensionista | undefined>()
+  const [deleteTarget, setDeleteTarget] = useState<Pensionista | undefined>()
   const [page, setPage] = useState(1)
 
   const filtered = pensioners.filter(p =>
@@ -54,6 +57,12 @@ export function PensionersPage() {
     if (!editTarget) return
     await updateMutation.mutateAsync({ id: editTarget.id, pensioner_type: editTarget.pensioner_type, input: data })
     setEditTarget(undefined)
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    await deleteMutation.mutateAsync({ id: deleteTarget.id, pensioner_type: deleteTarget.pensioner_type })
+    setDeleteTarget(undefined)
   }
 
   const totalActive = pensioners.filter(p => p.is_active).length
@@ -360,6 +369,16 @@ export function PensionersPage() {
                       >
                         <Pencil style={{ width: '14px', height: '14px' }} />
                       </button>
+                      <button
+                        onClick={() => setDeleteTarget(p)}
+                        className="flex items-center justify-center cursor-pointer transition-all duration-150"
+                        style={{ width: '30px', height: '30px', borderRadius: '8px', border: 'none', backgroundColor: 'transparent', color: '#94A3B8' }}
+                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#FEF2F2'; e.currentTarget.style.color = '#EF4444' }}
+                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#94A3B8' }}
+                        title="Eliminar"
+                      >
+                        <Trash2 style={{ width: '14px', height: '14px' }} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -423,6 +442,14 @@ export function PensionersPage() {
         <ConsumptionHistoryModal
           pensioner={historyTarget}
           onClose={() => setHistoryTarget(undefined)}
+        />
+      )}
+      {deleteTarget && (
+        <DeleteConfirmModal
+          pensioner={deleteTarget}
+          isLoading={deleteMutation.isPending}
+          onConfirm={handleDelete}
+          onClose={() => setDeleteTarget(undefined)}
         />
       )}
     </div>

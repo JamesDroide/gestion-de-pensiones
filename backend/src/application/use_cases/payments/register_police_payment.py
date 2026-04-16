@@ -60,12 +60,25 @@ class RegisterPolicePaymentUseCase:
             amount = dto.amount
             description = dto.description
 
+        discount_amount = Decimal("0.00")
+        if dto.discount_amount is not None and dto.discount_amount > Decimal("0.00"):
+            # El frontend ya calculó el descuento sobre la deuda real; usarlo directamente
+            discount_amount = dto.discount_amount.quantize(Decimal("0.01"))
+        elif dto.discount_type and dto.discount_value and dto.discount_value > Decimal("0.00"):
+            if dto.discount_type == 'percent':
+                discount_amount = (amount * dto.discount_value / Decimal("100")).quantize(Decimal("0.01"))
+            else:
+                discount_amount = min(dto.discount_value, amount).quantize(Decimal("0.01"))
+
         payment = await self._payment_repo.create(Payment(
             id=0,
             amount=amount,
             payment_type=dto.payment_type,
             police_id=police_id,
             description=description,
+            discount_type=dto.discount_type,
+            discount_value=dto.discount_value,
+            discount_amount=discount_amount,
         ))
 
         return PaymentRecordDTO(
@@ -74,4 +87,7 @@ class RegisterPolicePaymentUseCase:
             payment_type=payment.payment_type.value,
             description=payment.description,
             created_at=payment.created_at,
+            discount_type=payment.discount_type,
+            discount_value=payment.discount_value,
+            discount_amount=payment.discount_amount,
         )

@@ -27,6 +27,9 @@ export interface PaymentRecord {
   payment_type: string
   description: string | null
   created_at: string
+  discount_type: 'percent' | 'fixed' | null
+  discount_value: string | null
+  discount_amount: string
 }
 
 export interface PensionerPaymentSummary {
@@ -59,6 +62,9 @@ export interface RegisterPaymentInput {
   amount: number
   payment_type: 'cash' | 'tickets' | 'yape'
   description?: string
+  discount_type?: 'percent' | 'fixed'
+  discount_value?: number
+  discount_amount?: number
 }
 
 // ─── Tipos de policías ────────────────────────────────────────────────────────
@@ -116,4 +122,7 @@ export interface RegisterPolicePaymentInput {
   breakfast_tickets?: number
   lunch_tickets?: number
   description?: string
+  discount_type?: 'percent' | 'fixed'
+  discount_value?: number
+  discount_amount?: number
 }
