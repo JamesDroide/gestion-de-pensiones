@@ -4,7 +4,7 @@ Implementación SQLAlchemy del repositorio de pensionistas.
 from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.domain.entities.pensioner import Pensioner, PaymentMode
+from src.domain.entities.pensioner import Pensioner, PaymentMode, NoPensionPriceMode
 from src.domain.repositories.pensioner_repository import PensionerRepository
 from src.infrastructure.database.models.pensioner_model import PensionerModel
 
@@ -22,11 +22,18 @@ class SQLAlchemyPensionerRepository(PensionerRepository):
             id_code=model.id_code,
             payment_mode=model.payment_mode,
             no_pension_rules=model.no_pension_rules,
+            no_pension_price_mode=model.no_pension_price_mode,
             phone=model.phone,
             notes=model.notes,
             is_active=model.is_active,
             created_at=model.created_at,
             updated_at=model.updated_at,
+            custom_price_1_meal=model.custom_price_1_meal,
+            custom_price_2_meals=model.custom_price_2_meals,
+            custom_price_3_meals=model.custom_price_3_meals,
+            custom_breakfast_price=model.custom_breakfast_price,
+            custom_lunch_price=model.custom_lunch_price,
+            custom_dinner_price=model.custom_dinner_price,
         )
 
     async def get_by_id(self, pensioner_id: int) -> Optional[Pensioner]:
@@ -57,8 +64,15 @@ class SQLAlchemyPensionerRepository(PensionerRepository):
             id_code=pensioner.id_code,
             payment_mode=pensioner.payment_mode,
             no_pension_rules=pensioner.no_pension_rules,
+            no_pension_price_mode=pensioner.no_pension_price_mode,
             phone=pensioner.phone,
             notes=pensioner.notes,
+            custom_price_1_meal=pensioner.custom_price_1_meal,
+            custom_price_2_meals=pensioner.custom_price_2_meals,
+            custom_price_3_meals=pensioner.custom_price_3_meals,
+            custom_breakfast_price=pensioner.custom_breakfast_price,
+            custom_lunch_price=pensioner.custom_lunch_price,
+            custom_dinner_price=pensioner.custom_dinner_price,
         )
         self._session.add(model)
         await self._session.flush()
@@ -75,6 +89,13 @@ class SQLAlchemyPensionerRepository(PensionerRepository):
         model.notes = pensioner.notes
         model.payment_mode = pensioner.payment_mode
         model.no_pension_rules = pensioner.no_pension_rules
+        model.no_pension_price_mode = pensioner.no_pension_price_mode
+        model.custom_price_1_meal = pensioner.custom_price_1_meal
+        model.custom_price_2_meals = pensioner.custom_price_2_meals
+        model.custom_price_3_meals = pensioner.custom_price_3_meals
+        model.custom_breakfast_price = pensioner.custom_breakfast_price
+        model.custom_lunch_price = pensioner.custom_lunch_price
+        model.custom_dinner_price = pensioner.custom_dinner_price
         await self._session.flush()
         await self._session.refresh(model)
         return self._to_entity(model)

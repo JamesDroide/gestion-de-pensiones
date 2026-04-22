@@ -26,8 +26,22 @@ class UpdatePensionerUseCase:
             pensioner.payment_mode = dto.payment_mode
         if dto.no_pension_rules is not None:
             pensioner.no_pension_rules = dto.no_pension_rules
+        if dto.no_pension_price_mode is not None:
+            pensioner.no_pension_price_mode = dto.no_pension_price_mode
         if dto.phone is not None:
             pensioner.phone = dto.phone
         if dto.notes is not None:
             pensioner.notes = dto.notes
+        if dto.custom_price_1_meal is not None:
+            pensioner.custom_price_1_meal = dto.custom_price_1_meal
+        if dto.custom_price_2_meals is not None:
+            pensioner.custom_price_2_meals = dto.custom_price_2_meals
+        if dto.custom_price_3_meals is not None:
+            pensioner.custom_price_3_meals = dto.custom_price_3_meals
+        if dto.custom_breakfast_price is not None:
+            pensioner.custom_breakfast_price = dto.custom_breakfast_price
+        if dto.custom_lunch_price is not None:
+            pensioner.custom_lunch_price = dto.custom_lunch_price
+        if dto.custom_dinner_price is not None:
+            pensioner.custom_dinner_price = dto.custom_dinner_price
         return await self._repo.update(pensioner)

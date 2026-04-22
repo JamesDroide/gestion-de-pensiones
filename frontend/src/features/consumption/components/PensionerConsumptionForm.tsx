@@ -164,7 +164,7 @@ function MealStepper({ icon, label, count, savedCount, onChange, unitPrice }: Me
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#EEF2FF' }}
         >+</button>
       </div>
-      {active && (
+      {active && unitPrice > 0 && (
         <span style={{ fontSize: '9px', color: '#6366F1', fontWeight: 600 }}>
           S/ {(unitPrice * count).toFixed(2)}
         </span>
@@ -235,6 +235,7 @@ export function PensionerConsumptionForm() {
 
   const selectedPensioner = activePensioners.find(c => c.id === pensionerId)
   const isMultiPorcion = selectedPensioner?.no_pension_rules === true
+  const priceMode = selectedPensioner?.no_pension_price_mode ?? 'menu_price'
 
   const setCount = (field: keyof typeof meals) => (val: number) => {
     setMeals(prev => ({ ...prev, [field]: val }))
@@ -251,18 +252,45 @@ export function PensionerConsumptionForm() {
 
   const mealPrice = (): number => {
     if (!pricing || totalPortions === 0) return 0
-    if (isMultiPorcion) {
-      return Number(pricing.menu_price) * totalPortions
+    if (!isMultiPorcion) {
+      if (uniqueMeals === 1) return Number(pricing.menu_price_normal)
+      if (uniqueMeals === 2) return Number(pricing.menu_price_2_meals) * 2
+      if (uniqueMeals === 3) return Number(pricing.menu_price_3_meals) * 3
+      return 0
     }
-    if (uniqueMeals === 1) return Number(pricing.menu_price_normal)
-    if (uniqueMeals === 2) return Number(pricing.menu_price_2_meals) * 2
-    if (uniqueMeals === 3) return Number(pricing.menu_price_3_meals) * 3
-    return 0
+    if (priceMode === 'custom_tiered') {
+      const p = selectedPensioner!
+      if (uniqueMeals === 1) return Number(p.custom_price_1_meal ?? 0)
+      if (uniqueMeals === 2) return Number(p.custom_price_2_meals ?? 0) * 2
+      if (uniqueMeals === 3) return Number(p.custom_price_3_meals ?? 0) * 3
+      return 0
+    }
+    if (priceMode === 'custom_by_type') {
+      const p = selectedPensioner!
+      return (
+        Number(p.custom_breakfast_price ?? 0) * meals.breakfast_count +
+        Number(p.custom_lunch_price    ?? 0) * meals.lunch_count +
+        Number(p.custom_dinner_price   ?? 0) * meals.dinner_count
+      )
+    }
+    // menu_price (default)
+    return Number(pricing.menu_price) * totalPortions
+  }
+
+  // Precio unitario por tipo de comida (para MealStepper)
+  const unitPriceFor = (meal: 'breakfast' | 'lunch' | 'dinner'): number => {
+    if (!isMultiPorcion || !pricing) return 0
+    if (priceMode === 'custom_by_type' && selectedPensioner) {
+      if (meal === 'breakfast') return Number(selectedPensioner.custom_breakfast_price ?? 0)
+      if (meal === 'lunch')     return Number(selectedPensioner.custom_lunch_price    ?? 0)
+      return                           Number(selectedPensioner.custom_dinner_price   ?? 0)
+    }
+    if (priceMode === 'menu_price') return Number(pricing.menu_price)
+    return 0  // custom_tiered: el total depende de uniqueMeals, no por porción
   }
 
   const extrasTotal = extras.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0)
   const totalConsumo = mealPrice() + extrasTotal
-  const menuPrice = pricing ? Number(pricing.menu_price) : 0
 
   const addExtra = () => {
     const val = parseFloat(extraInput)
@@ -320,8 +348,10 @@ export function PensionerConsumptionForm() {
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {isMultiPorcion && pensioneroSeleccionado && (
-            <span style={{ fontSize: '11px', fontWeight: 700, padding: '4px 10px', borderRadius: '999px', backgroundColor: '#FFF7ED', color: '#C2410C', border: '1px solid #FED7AA' }}>
-              Precio fijo por porción
+            <span style={{ fontSize: '11px', fontWeight: 700, padding: '4px 10px', borderRadius: '999px', backgroundColor: '#EEF2FF', color: '#4F46E5', border: '1px solid #C7D2FE' }}>
+              {priceMode === 'menu_price'     && 'Precio del menú'}
+              {priceMode === 'custom_tiered'  && 'Precios escalonados propios'}
+              {priceMode === 'custom_by_type' && 'Precios por tipo de comida'}
             </span>
           )}
           {pensioneroSeleccionado && isUpdating && (
@@ -411,7 +441,7 @@ export function PensionerConsumptionForm() {
             {/* Desayuno */}
             <div style={{ borderRight: '1.5px solid #E2E8F0', display: 'flex', justifyContent: 'center' }}>
               {isMultiPorcion ? (
-                <MealStepper icon={<Coffee style={{ width: '10px', height: '10px' }} />} label="Desayuno" count={meals.breakfast_count} savedCount={savedMeals.breakfast_count} onChange={setCount('breakfast_count')} unitPrice={menuPrice} />
+                <MealStepper icon={<Coffee style={{ width: '10px', height: '10px' }} />} label="Desayuno" count={meals.breakfast_count} savedCount={savedMeals.breakfast_count} onChange={setCount('breakfast_count')} unitPrice={unitPriceFor('breakfast')} />
               ) : (
                 <MealCell icon={<Coffee style={{ width: '10px', height: '10px' }} />} label="Desayuno" count={meals.breakfast_count} savedCount={savedMeals.breakfast_count} onToggle={() => toggleMeal('breakfast_count')} />
               )}
@@ -420,7 +450,7 @@ export function PensionerConsumptionForm() {
             {/* Almuerzo */}
             <div style={{ borderRight: '1.5px solid #E2E8F0', display: 'flex', justifyContent: 'center' }}>
               {isMultiPorcion ? (
-                <MealStepper icon={<Sun style={{ width: '10px', height: '10px' }} />} label="Almuerzo" count={meals.lunch_count} savedCount={savedMeals.lunch_count} onChange={setCount('lunch_count')} unitPrice={menuPrice} />
+                <MealStepper icon={<Sun style={{ width: '10px', height: '10px' }} />} label="Almuerzo" count={meals.lunch_count} savedCount={savedMeals.lunch_count} onChange={setCount('lunch_count')} unitPrice={unitPriceFor('lunch')} />
               ) : (
                 <MealCell icon={<Sun style={{ width: '10px', height: '10px' }} />} label="Almuerzo" count={meals.lunch_count} savedCount={savedMeals.lunch_count} onToggle={() => toggleMeal('lunch_count')} />
               )}
@@ -429,7 +459,7 @@ export function PensionerConsumptionForm() {
             {/* Cena */}
             <div style={{ borderRight: '1.5px solid #E2E8F0', display: 'flex', justifyContent: 'center' }}>
               {isMultiPorcion ? (
-                <MealStepper icon={<Moon style={{ width: '10px', height: '10px' }} />} label="Cena" count={meals.dinner_count} savedCount={savedMeals.dinner_count} onChange={setCount('dinner_count')} unitPrice={menuPrice} />
+                <MealStepper icon={<Moon style={{ width: '10px', height: '10px' }} />} label="Cena" count={meals.dinner_count} savedCount={savedMeals.dinner_count} onChange={setCount('dinner_count')} unitPrice={unitPriceFor('dinner')} />
               ) : (
                 <MealCell icon={<Moon style={{ width: '10px', height: '10px' }} />} label="Cena" count={meals.dinner_count} savedCount={savedMeals.dinner_count} onToggle={() => toggleMeal('dinner_count')} />
               )}
@@ -472,14 +502,28 @@ export function PensionerConsumptionForm() {
             <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#94A3B8', marginBottom: '2px' }}>Total consumo</div>
             {totalPortions > 0 && pricing && (
               <div style={{ fontSize: '11px', color: '#64748B' }}>
-                {isMultiPorcion ? (
-                  <span>{totalPortions} {totalPortions === 1 ? 'porción' : 'porciones'} × S/ {Number(pricing.menu_price).toFixed(2)}{extrasTotal > 0 && ` + S/ ${extrasTotal.toFixed(2)} extras`}</span>
-                ) : (
+                {!isMultiPorcion && (
                   <span>
                     {uniqueMeals === 1 && `1 comida S/ ${Number(pricing.menu_price_normal).toFixed(2)}`}
                     {uniqueMeals === 2 && `2 comidas S/ ${(Number(pricing.menu_price_2_meals) * 2).toFixed(2)}`}
                     {uniqueMeals === 3 && `3 comidas S/ ${(Number(pricing.menu_price_3_meals) * 3).toFixed(2)}`}
                     {extrasTotal > 0 && ` + S/ ${extrasTotal.toFixed(2)} extras`}
+                  </span>
+                )}
+                {isMultiPorcion && priceMode === 'menu_price' && (
+                  <span>{totalPortions} {totalPortions === 1 ? 'porción' : 'porciones'} × S/ {Number(pricing.menu_price).toFixed(2)}{extrasTotal > 0 && ` + S/ ${extrasTotal.toFixed(2)} extras`}</span>
+                )}
+                {isMultiPorcion && priceMode === 'custom_tiered' && selectedPensioner && (
+                  <span>
+                    {uniqueMeals === 1 && `1 tipo S/ ${Number(selectedPensioner.custom_price_1_meal ?? 0).toFixed(2)}`}
+                    {uniqueMeals === 2 && `2 tipos S/ ${(Number(selectedPensioner.custom_price_2_meals ?? 0) * 2).toFixed(2)}`}
+                    {uniqueMeals === 3 && `3 tipos S/ ${(Number(selectedPensioner.custom_price_3_meals ?? 0) * 3).toFixed(2)}`}
+                    {extrasTotal > 0 && ` + S/ ${extrasTotal.toFixed(2)} extras`}
+                  </span>
+                )}
+                {isMultiPorcion && priceMode === 'custom_by_type' && selectedPensioner && (
+                  <span>
+                    por tipo de comida{extrasTotal > 0 && ` + S/ ${extrasTotal.toFixed(2)} extras`}
                   </span>
                 )}
               </div>

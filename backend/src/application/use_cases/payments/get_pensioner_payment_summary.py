@@ -17,25 +17,7 @@ from src.application.dtos.payment_dtos import (
     PaymentRecordDTO,
 )
 from src.application.dtos.consumption_dtos import ExtraItemDTO
-
-
-def _calc_meal_cost(c, pricing, no_pension_rules: bool = False) -> Decimal:
-    """Precio de menú según los counts de comidas del registro.
-    - no_pension_rules=True: menu_price × total de porciones (sin descuento)
-    - normal: tier escalonado según número de tipos distintos de comida (máx 3)
-    """
-    if no_pension_rules:
-        total_portions = c.breakfast_count + c.lunch_count + c.dinner_count
-        return pricing.menu_price * total_portions
-    # Tier escalonado: se basa en cuántas comidas distintas (no porciones)
-    unique = sum([c.has_breakfast, c.has_lunch, c.has_dinner])
-    if unique == 0:
-        return Decimal("0.00")
-    if unique == 1:
-        return pricing.menu_price_normal
-    if unique == 2:
-        return pricing.menu_price_2_meals * 2
-    return pricing.menu_price_3_meals * 3
+from src.application.helpers.meal_cost import calc_meal_cost
 
 
 class GetPensionerPaymentSummaryUseCase:
@@ -75,7 +57,24 @@ class GetPensionerPaymentSummaryUseCase:
             if c.total_price is not None:
                 daily_total = c.total_price
             else:
-                daily_total = _calc_meal_cost(c, pricing, pensioner.no_pension_rules) + c.extras_total
+                daily_total = calc_meal_cost(
+                    breakfast=c.breakfast_count,
+                    lunch=c.lunch_count,
+                    dinner=c.dinner_count,
+                    extras_total=c.extras_total,
+                    no_pension_rules=pensioner.no_pension_rules,
+                    no_pension_price_mode=pensioner.no_pension_price_mode,
+                    menu_price=pricing.menu_price,
+                    menu_price_normal=pricing.menu_price_normal,
+                    menu_price_2_meals=pricing.menu_price_2_meals,
+                    menu_price_3_meals=pricing.menu_price_3_meals,
+                    custom_price_1_meal=pensioner.custom_price_1_meal,
+                    custom_price_2_meals=pensioner.custom_price_2_meals,
+                    custom_price_3_meals=pensioner.custom_price_3_meals,
+                    custom_breakfast_price=pensioner.custom_breakfast_price,
+                    custom_lunch_price=pensioner.custom_lunch_price,
+                    custom_dinner_price=pensioner.custom_dinner_price,
+                )
 
             total_consumed += daily_total
             consumption_days.append(ConsumptionDayDTO(

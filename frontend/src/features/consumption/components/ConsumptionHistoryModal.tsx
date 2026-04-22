@@ -11,7 +11,7 @@ import {
   TrendingUp,
   RefreshCw,
 } from 'lucide-react'
-import type { Pensionista } from '@/features/pensioners/types'
+import type { Pensionista, NoPensionPriceMode } from '@/features/pensioners/types'
 import type { PensionerConsumption, PoliceConsumption, ExtraItem } from '@/features/consumption/types'
 import { useConsumptionHistory } from '@/features/consumption/hooks/useConsumptionHistory'
 import { usePricing } from '@/features/settings/hooks/useSettings'
@@ -61,6 +61,16 @@ function formatDate(dateStr: string): string {
 
 // ─── Helpers de datos ─────────────────────────────────────────────────────────
 
+interface CustomPrices {
+  priceMode: NoPensionPriceMode
+  custom_price_1_meal?: string | null
+  custom_price_2_meals?: string | null
+  custom_price_3_meals?: string | null
+  custom_breakfast_price?: string | null
+  custom_lunch_price?: string | null
+  custom_dinner_price?: string | null
+}
+
 /**
  * Calcula el total de una fila civil.
  * Si el día ya fue cerrado usa total_price (snapshot inmutable).
@@ -70,24 +80,44 @@ function calcCivilTotal(
   row: PensionerConsumption,
   pricing: PricingConfig | undefined,
   noPensionRules: boolean = false,
+  custom?: CustomPrices,
 ): number {
   if (row.total_price !== null && row.total_price !== undefined) {
     return parseFloat(String(row.total_price)) || 0
   }
-  // Registro aún abierto → calcular con precios actuales
   if (!pricing) return 0
   const extras = parseFloat(String(row.extras_total ?? '0')) || 0
-  const count = row.meal_count ?? 0
-  let mealTotal = 0
-  if (noPensionRules) {
-    // Sin reglas de pensión: precio fijo del menú × comidas, sin descuento
-    mealTotal = Number(pricing.menu_price) * count
-  } else {
-    if (count === 1) mealTotal = Number(pricing.menu_price_normal) * 1
-    else if (count === 2) mealTotal = Number(pricing.menu_price_2_meals) * 2
-    else if (count === 3) mealTotal = Number(pricing.menu_price_3_meals) * 3
+  const uniqueMeals = [row.breakfast_count, row.lunch_count, row.dinner_count].filter(c => (c ?? 0) > 0).length
+
+  if (!noPensionRules) {
+    let mealTotal = 0
+    if (uniqueMeals === 1) mealTotal = Number(pricing.menu_price_normal)
+    else if (uniqueMeals === 2) mealTotal = Number(pricing.menu_price_2_meals) * 2
+    else if (uniqueMeals === 3) mealTotal = Number(pricing.menu_price_3_meals) * 3
+    return mealTotal + extras
   }
-  return mealTotal + extras
+
+  const mode = custom?.priceMode ?? 'menu_price'
+
+  if (mode === 'custom_tiered' && custom) {
+    let mealTotal = 0
+    if (uniqueMeals === 1) mealTotal = Number(custom.custom_price_1_meal ?? 0)
+    else if (uniqueMeals === 2) mealTotal = Number(custom.custom_price_2_meals ?? 0) * 2
+    else if (uniqueMeals === 3) mealTotal = Number(custom.custom_price_3_meals ?? 0) * 3
+    return mealTotal + extras
+  }
+
+  if (mode === 'custom_by_type' && custom) {
+    const mealTotal =
+      Number(custom.custom_breakfast_price ?? 0) * (row.breakfast_count ?? 0) +
+      Number(custom.custom_lunch_price    ?? 0) * (row.lunch_count    ?? 0) +
+      Number(custom.custom_dinner_price   ?? 0) * (row.dinner_count   ?? 0)
+    return mealTotal + extras
+  }
+
+  // menu_price (default)
+  const totalPortions = (row.breakfast_count ?? 0) + (row.lunch_count ?? 0) + (row.dinner_count ?? 0)
+  return Number(pricing.menu_price) * totalPortions + extras
 }
 
 /** Devuelve el total formateado de una fila */
@@ -96,9 +126,10 @@ function totalRow(
   isCivil: boolean,
   pricing: PricingConfig | undefined,
   noPensionRules: boolean = false,
+  custom?: CustomPrices,
 ): string {
   if (isCivil) {
-    const n = calcCivilTotal(row as PensionerConsumption, pricing, noPensionRules)
+    const n = calcCivilTotal(row as PensionerConsumption, pricing, noPensionRules, custom)
     return `S/ ${n.toFixed(2)}`
   }
   const r = row as PoliceConsumption
@@ -112,9 +143,10 @@ function calcMonthTotal(
   isCivil: boolean,
   pricing: PricingConfig | undefined,
   noPensionRules: boolean = false,
+  custom?: CustomPrices,
 ): number {
   return data.reduce((acc, row) => {
-    if (isCivil) return acc + calcCivilTotal(row as PensionerConsumption, pricing, noPensionRules)
+    if (isCivil) return acc + calcCivilTotal(row as PensionerConsumption, pricing, noPensionRules, custom)
     return acc + (parseFloat(String((row as PoliceConsumption).total)) || 0)
   }, 0)
 }
@@ -295,9 +327,10 @@ interface TableProps {
   isCivil: boolean
   pricing: PricingConfig | undefined
   noPensionRules: boolean
+  custom?: CustomPrices
 }
 
-function HistoryTable({ data, isCivil, pricing, noPensionRules }: TableProps) {
+function HistoryTable({ data, isCivil, pricing, noPensionRules, custom }: TableProps) {
   return (
     <div
       style={{
@@ -465,7 +498,7 @@ function HistoryTable({ data, isCivil, pricing, noPensionRules }: TableProps) {
                     borderBottom: '1px solid #F1F5F9',
                   }}
                 >
-                  {totalRow(row, isCivil, pricing, noPensionRules)}
+                  {totalRow(row, isCivil, pricing, noPensionRules, custom)}
                 </td>
               </tr>
             )
@@ -488,6 +521,15 @@ interface Props {
 export function ConsumptionHistoryModal({ pensioner, onClose }: Props) {
   const isCivil = pensioner.pensioner_type === 'civil'
   const noPensionRules = isCivil && (pensioner.no_pension_rules ?? false)
+  const custom: CustomPrices | undefined = noPensionRules ? {
+    priceMode: pensioner.no_pension_price_mode ?? 'menu_price',
+    custom_price_1_meal:    pensioner.custom_price_1_meal,
+    custom_price_2_meals:   pensioner.custom_price_2_meals,
+    custom_price_3_meals:   pensioner.custom_price_3_meals,
+    custom_breakfast_price: pensioner.custom_breakfast_price,
+    custom_lunch_price:     pensioner.custom_lunch_price,
+    custom_dinner_price:    pensioner.custom_dinner_price,
+  } : undefined
 
   const [month, setMonth] = useState<string>(currentMonthStr)
 
@@ -499,7 +541,7 @@ export function ConsumptionHistoryModal({ pensioner, onClose }: Props) {
   const { data: pricing } = usePricing()
 
   const rows = (data ?? []) as (PensionerConsumption | PoliceConsumption)[]
-  const total = useMemo(() => calcMonthTotal(rows, isCivil, pricing, noPensionRules), [rows, isCivil, pricing, noPensionRules])
+  const total = useMemo(() => calcMonthTotal(rows, isCivil, pricing, noPensionRules, custom), [rows, isCivil, pricing, noPensionRules, custom])
 
   // Bloquea el scroll del body mientras el modal está abierto
   useEffect(() => {
@@ -804,7 +846,7 @@ export function ConsumptionHistoryModal({ pensioner, onClose }: Props) {
           ) : rows.length === 0 ? (
             <EmptyHistory />
           ) : (
-            <HistoryTable data={rows} isCivil={isCivil} pricing={pricing} noPensionRules={noPensionRules} />
+            <HistoryTable data={rows} isCivil={isCivil} pricing={pricing} noPensionRules={noPensionRules} custom={custom} />
           )}
         </div>
 

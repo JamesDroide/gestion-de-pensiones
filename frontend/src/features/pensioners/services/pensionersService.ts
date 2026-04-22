@@ -1,5 +1,5 @@
 import { apiClient } from '@/shared/services/api'
-import type { Pensionista, CreatePensionerInput } from '../types'
+import type { Pensionista, CreatePensionerInput, NoPensionPriceMode } from '../types'
 
 // Adapta un civil del backend al tipo Pensionista unificado
 function adaptCivil(raw: Record<string, unknown>): Pensionista {
@@ -10,6 +10,13 @@ function adaptCivil(raw: Record<string, unknown>): Pensionista {
     dni: (raw.id_code ?? raw.dni ?? '') as string,
     payment_mode: raw.payment_mode as Pensionista['payment_mode'],
     no_pension_rules: (raw.no_pension_rules ?? false) as boolean,
+    no_pension_price_mode: (raw.no_pension_price_mode ?? 'menu_price') as NoPensionPriceMode,
+    custom_price_1_meal: (raw.custom_price_1_meal ?? null) as string | null,
+    custom_price_2_meals: (raw.custom_price_2_meals ?? null) as string | null,
+    custom_price_3_meals: (raw.custom_price_3_meals ?? null) as string | null,
+    custom_breakfast_price: (raw.custom_breakfast_price ?? null) as string | null,
+    custom_lunch_price: (raw.custom_lunch_price ?? null) as string | null,
+    custom_dinner_price: (raw.custom_dinner_price ?? null) as string | null,
     phone: (raw.phone ?? '') as string,
     notes: (raw.notes ?? null) as string | null,
     is_active: raw.is_active as boolean,
@@ -50,8 +57,15 @@ export const pensionersService = {
         id_code: input.dni,
         payment_mode: input.payment_mode ?? 'monthly',
         no_pension_rules: input.no_pension_rules ?? false,
+        no_pension_price_mode: input.no_pension_price_mode ?? 'menu_price',
         phone: input.phone,
         notes: input.notes,
+        custom_price_1_meal: input.custom_price_1_meal ?? null,
+        custom_price_2_meals: input.custom_price_2_meals ?? null,
+        custom_price_3_meals: input.custom_price_3_meals ?? null,
+        custom_breakfast_price: input.custom_breakfast_price ?? null,
+        custom_lunch_price: input.custom_lunch_price ?? null,
+        custom_dinner_price: input.custom_dinner_price ?? null,
       }
       const { data } = await apiClient.post('/pensioners/', payload)
       return adaptCivil(data as Record<string, unknown>)
@@ -86,7 +100,14 @@ export const pensionersService = {
       }
       if (input.payment_mode) payload.payment_mode = input.payment_mode
       if (input.no_pension_rules !== undefined) payload.no_pension_rules = input.no_pension_rules
+      if (input.no_pension_price_mode !== undefined) payload.no_pension_price_mode = input.no_pension_price_mode
       if (input.dni) payload.id_code = input.dni
+      payload.custom_price_1_meal = input.custom_price_1_meal ?? null
+      payload.custom_price_2_meals = input.custom_price_2_meals ?? null
+      payload.custom_price_3_meals = input.custom_price_3_meals ?? null
+      payload.custom_breakfast_price = input.custom_breakfast_price ?? null
+      payload.custom_lunch_price = input.custom_lunch_price ?? null
+      payload.custom_dinner_price = input.custom_dinner_price ?? null
       const { data } = await apiClient.patch(`/pensioners/${id}`, payload)
       return adaptCivil(data as Record<string, unknown>)
     } else {

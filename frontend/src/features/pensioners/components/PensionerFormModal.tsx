@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { X, Save, Users, Shield, Ban } from 'lucide-react'
-import type { Pensionista, CreatePensionerInput, PensionerType } from '../types'
+import { X, Save, Users, Shield, Ban, ChefHat, LayoutList } from 'lucide-react'
+import type { Pensionista, CreatePensionerInput, PensionerType, NoPensionPriceMode } from '../types'
 import { PAYMENT_MODE_LABELS } from '../types'
 import type { PaymentMode } from '@/shared/types'
 import { usePricing } from '@/features/settings/hooks/useSettings'
@@ -24,11 +24,24 @@ const LABEL_STYLE: React.CSSProperties = {
 
 const INPUT_BASE: React.CSSProperties = {
   width: '100%',
-  height: '48px',
-  padding: '0 16px',
+  height: '44px',
+  padding: '0 14px',
   fontSize: '14px',
   border: '1.5px solid #E2E8F0',
-  borderRadius: '12px',
+  borderRadius: '10px',
+  backgroundColor: '#F8FAFC',
+  color: '#1E293B',
+  outline: 'none',
+  transition: 'all 150ms',
+}
+
+const PRICE_INPUT: React.CSSProperties = {
+  width: '100%',
+  height: '40px',
+  padding: '0 12px 0 36px',
+  fontSize: '14px',
+  border: '1.5px solid #E2E8F0',
+  borderRadius: '10px',
   backgroundColor: '#F8FAFC',
   color: '#1E293B',
   outline: 'none',
@@ -49,6 +62,12 @@ function onBlur(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLT
 
 function onlyDigits(v: string) { return v.replace(/\D/g, '') }
 
+const PRICE_MODE_OPTIONS: { value: NoPensionPriceMode; label: string; desc: string; icon: React.ElementType }[] = [
+  { value: 'menu_price', label: 'Precio del menú', desc: 'Precio global por comida', icon: ChefHat },
+  { value: 'custom_tiered', label: 'Escalonado propio', desc: '1, 2 o 3 comidas a precios distintos', icon: LayoutList },
+  { value: 'custom_by_type', label: 'Por tipo de comida', desc: 'Desayuno, almuerzo y cena a precio fijo', icon: Users },
+]
+
 export function PensionerFormModal({ initial, onSubmit, onClose, isLoading }: Props) {
   const isEditing = !!initial
   const { data: pricing } = usePricing()
@@ -59,6 +78,13 @@ export function PensionerFormModal({ initial, onSubmit, onClose, isLoading }: Pr
     dni: initial?.dni ?? '',
     payment_mode: initial?.payment_mode ?? 'monthly',
     no_pension_rules: initial?.no_pension_rules ?? false,
+    no_pension_price_mode: initial?.no_pension_price_mode ?? 'menu_price',
+    custom_price_1_meal: initial?.custom_price_1_meal ? Number(initial.custom_price_1_meal) : null,
+    custom_price_2_meals: initial?.custom_price_2_meals ? Number(initial.custom_price_2_meals) : null,
+    custom_price_3_meals: initial?.custom_price_3_meals ? Number(initial.custom_price_3_meals) : null,
+    custom_breakfast_price: initial?.custom_breakfast_price ? Number(initial.custom_breakfast_price) : null,
+    custom_lunch_price: initial?.custom_lunch_price ? Number(initial.custom_lunch_price) : null,
+    custom_dinner_price: initial?.custom_dinner_price ? Number(initial.custom_dinner_price) : null,
     rank: initial?.rank ?? '',
     phone: initial?.phone ?? '',
     notes: initial?.notes ?? '',
@@ -84,6 +110,8 @@ export function PensionerFormModal({ initial, onSubmit, onClose, isLoading }: Pr
     e.preventDefault()
     if (validate()) onSubmit(form)
   }
+
+  const priceMode = form.no_pension_price_mode ?? 'menu_price'
 
   return (
     <div
@@ -140,8 +168,8 @@ export function PensionerFormModal({ initial, onSubmit, onClose, isLoading }: Pr
                       onClick={() => set('pensioner_type', type)}
                       className="flex items-center gap-2 cursor-pointer transition-all duration-150"
                       style={{
-                        padding: '12px 16px',
-                        borderRadius: '12px',
+                        padding: '11px 14px',
+                        borderRadius: '10px',
                         border: active ? '2px solid #6366F1' : '1.5px solid #E2E8F0',
                         backgroundColor: active ? '#EEF2FF' : '#FAFAFA',
                         color: active ? '#4F46E5' : '#64748B',
@@ -150,7 +178,7 @@ export function PensionerFormModal({ initial, onSubmit, onClose, isLoading }: Pr
                         boxShadow: active ? '0 0 0 3px rgba(99,102,241,0.10)' : 'none',
                       }}
                     >
-                      <Icon style={{ width: '16px', height: '16px', flexShrink: 0 }} />
+                      <Icon style={{ width: '15px', height: '15px', flexShrink: 0 }} />
                       {type === 'civil' ? 'Pensionista' : 'Policía'}
                     </button>
                   )
@@ -175,7 +203,7 @@ export function PensionerFormModal({ initial, onSubmit, onClose, isLoading }: Pr
             {errors.full_name && <p style={{ fontSize: '11px', color: '#EF4444', marginTop: '4px' }}>{errors.full_name}</p>}
           </div>
 
-          {/* DNI — solo creación, 8 dígitos */}
+          {/* DNI — solo creación */}
           {!isEditing && (
             <div>
               <label style={LABEL_STYLE}>DNI *</label>
@@ -211,22 +239,21 @@ export function PensionerFormModal({ initial, onSubmit, onClose, isLoading }: Pr
                   alignItems: 'center',
                   gap: '10px',
                   padding: '10px 14px',
-                  borderRadius: '12px',
-                  border: form.no_pension_rules ? '1.5px solid #F97316' : '1.5px solid #E2E8F0',
-                  backgroundColor: form.no_pension_rules ? '#FFF7ED' : '#F8FAFC',
+                  borderRadius: '10px',
+                  border: form.no_pension_rules ? '1.5px solid #6366F1' : '1.5px solid #E2E8F0',
+                  backgroundColor: form.no_pension_rules ? '#EEF2FF' : '#F8FAFC',
                   cursor: 'pointer',
                   transition: 'all 150ms',
                   textAlign: 'left',
                   width: '100%',
                 }}
               >
-                {/* Switch visual */}
                 <div
                   style={{
-                    width: '36px',
-                    height: '20px',
+                    width: '34px',
+                    height: '18px',
                     borderRadius: '999px',
-                    backgroundColor: form.no_pension_rules ? '#F97316' : '#CBD5E1',
+                    backgroundColor: form.no_pension_rules ? '#6366F1' : '#CBD5E1',
                     position: 'relative',
                     flexShrink: 0,
                     transition: 'background-color 180ms',
@@ -235,8 +262,8 @@ export function PensionerFormModal({ initial, onSubmit, onClose, isLoading }: Pr
                   <div
                     style={{
                       position: 'absolute',
-                      top: '3px',
-                      left: form.no_pension_rules ? '19px' : '3px',
+                      top: '2px',
+                      left: form.no_pension_rules ? '18px' : '2px',
                       width: '14px',
                       height: '14px',
                       borderRadius: '50%',
@@ -246,20 +273,18 @@ export function PensionerFormModal({ initial, onSubmit, onClose, isLoading }: Pr
                     }}
                   />
                 </div>
-
                 <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: form.no_pension_rules ? '#C2410C' : '#1E293B' }}>
+                  <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: form.no_pension_rules ? '#4F46E5' : '#1E293B' }}>
                     No aplica reglas de pensiones
                   </p>
                   <p style={{ margin: '1px 0 0', fontSize: '11px', color: '#94A3B8' }}>
-                    Cobra el precio del menú directo
+                    Precio personalizado por este pensionista
                   </p>
                 </div>
-
-                <Ban style={{ width: '15px', height: '15px', color: form.no_pension_rules ? '#F97316' : '#CBD5E1', flexShrink: 0 }} />
+                <Ban style={{ width: '14px', height: '14px', color: form.no_pension_rules ? '#6366F1' : '#CBD5E1', flexShrink: 0 }} />
               </button>
 
-              {/* Modalidad de cobro — oculta si no_pension_rules está activo */}
+              {/* Modalidad de cobro — oculta si no_pension_rules activo */}
               {!form.no_pension_rules ? (
                 <div>
                   <label style={LABEL_STYLE}>Modalidad de cobro *</label>
@@ -276,43 +301,140 @@ export function PensionerFormModal({ initial, onSubmit, onClose, isLoading }: Pr
                   </select>
                 </div>
               ) : (
-                /* Card de precio del menú cuando no aplican reglas */
-                <div
-                  style={{
-                    borderRadius: '12px',
-                    border: '1.5px solid #FED7AA',
-                    backgroundColor: '#FFF7ED',
-                    padding: '14px 16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '10px',
-                      backgroundColor: '#FFEDD5',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <span style={{ fontSize: '16px', fontWeight: 800, color: '#EA580C' }}>S/</span>
+                /* Selector de modo de precio */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={LABEL_STYLE}>Modo de precio *</label>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {PRICE_MODE_OPTIONS.map(opt => {
+                      const active = priceMode === opt.value
+                      const Icon = opt.icon
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => set('no_pension_price_mode', opt.value)}
+                          className="flex items-center gap-10px cursor-pointer transition-all duration-150"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '10px 12px',
+                            borderRadius: '10px',
+                            border: active ? '1.5px solid #6366F1' : '1.5px solid #E2E8F0',
+                            backgroundColor: active ? '#EEF2FF' : '#FAFAFA',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            width: '100%',
+                            transition: 'all 150ms',
+                          }}
+                        >
+                          <div style={{
+                            width: '30px', height: '30px', borderRadius: '8px', flexShrink: 0,
+                            backgroundColor: active ? '#E0E7FF' : '#F1F5F9',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <Icon style={{ width: '14px', height: '14px', color: active ? '#4F46E5' : '#94A3B8' }} />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ margin: 0, fontSize: '13px', fontWeight: active ? 700 : 500, color: active ? '#4F46E5' : '#1E293B' }}>
+                              {opt.label}
+                            </p>
+                            <p style={{ margin: '1px 0 0', fontSize: '11px', color: '#94A3B8' }}>{opt.desc}</p>
+                          </div>
+                          <div style={{
+                            width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0,
+                            border: active ? '5px solid #6366F1' : '1.5px solid #CBD5E1',
+                            backgroundColor: '#fff',
+                          }} />
+                        </button>
+                      )
+                    })}
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: '#9A3412', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      Precio del menú
-                    </p>
-                    <p style={{ margin: '2px 0 0', fontSize: '22px', fontWeight: 800, color: '#C2410C', letterSpacing: '-0.03em', lineHeight: 1 }}>
-                      S/ {Number(menuPrice).toFixed(2)}
-                    </p>
-                    <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#EA580C' }}>
-                      Configurable en Ajustes del sistema
-                    </p>
-                  </div>
+
+                  {/* Campos según modo seleccionado */}
+                  {priceMode === 'menu_price' && (
+                    <div
+                      style={{
+                        borderRadius: '10px',
+                        border: '1.5px solid #E0E7FF',
+                        backgroundColor: '#EEF2FF',
+                        padding: '12px 14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                      }}
+                    >
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: '#4F46E5' }}>S/</span>
+                      <div>
+                        <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: '#4338CA', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Precio del menú actual
+                        </p>
+                        <p style={{ margin: '2px 0 0', fontSize: '18px', fontWeight: 800, color: '#4F46E5', lineHeight: 1 }}>
+                          S/ {Number(menuPrice).toFixed(2)}
+                        </p>
+                        <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#6366F1' }}>
+                          Configurable en Ajustes del sistema
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {priceMode === 'custom_tiered' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {[
+                        { key: 'custom_price_1_meal' as const, label: '1 comida' },
+                        { key: 'custom_price_2_meals' as const, label: '2 comidas' },
+                        { key: 'custom_price_3_meals' as const, label: '3 comidas' },
+                      ].map(({ key, label }) => (
+                        <div key={key}>
+                          <label style={{ ...LABEL_STYLE, marginBottom: '4px' }}>{label}</label>
+                          <div style={{ position: 'relative' }}>
+                            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 700, color: '#64748B' }}>S/</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={form[key] ?? ''}
+                              onChange={e => set(key, e.target.value === '' ? null : Number(e.target.value))}
+                              placeholder="0.00"
+                              style={PRICE_INPUT}
+                              onFocus={onFocus}
+                              onBlur={onBlur}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {priceMode === 'custom_by_type' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {[
+                        { key: 'custom_breakfast_price' as const, label: 'Desayuno' },
+                        { key: 'custom_lunch_price' as const, label: 'Almuerzo' },
+                        { key: 'custom_dinner_price' as const, label: 'Cena' },
+                      ].map(({ key, label }) => (
+                        <div key={key}>
+                          <label style={{ ...LABEL_STYLE, marginBottom: '4px' }}>{label}</label>
+                          <div style={{ position: 'relative' }}>
+                            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 700, color: '#64748B' }}>S/</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={form[key] ?? ''}
+                              onChange={e => set(key, e.target.value === '' ? null : Number(e.target.value))}
+                              placeholder="0.00"
+                              style={PRICE_INPUT}
+                              onFocus={onFocus}
+                              onBlur={onBlur}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -334,7 +456,7 @@ export function PensionerFormModal({ initial, onSubmit, onClose, isLoading }: Pr
             </div>
           )}
 
-          {/* Teléfono — obligatorio, 9 dígitos */}
+          {/* Teléfono */}
           <div>
             <label style={LABEL_STYLE}>Teléfono *</label>
             <input
@@ -363,7 +485,7 @@ export function PensionerFormModal({ initial, onSubmit, onClose, isLoading }: Pr
               onChange={e => set('notes', e.target.value)}
               rows={2}
               placeholder="Observaciones opcionales"
-              style={{ width: '100%', padding: '12px 16px', fontSize: '14px', border: '1.5px solid #E2E8F0', borderRadius: '12px', backgroundColor: '#F8FAFC', color: '#1E293B', outline: 'none', resize: 'none', transition: 'all 150ms' }}
+              style={{ width: '100%', padding: '10px 14px', fontSize: '14px', border: '1.5px solid #E2E8F0', borderRadius: '10px', backgroundColor: '#F8FAFC', color: '#1E293B', outline: 'none', resize: 'none', transition: 'all 150ms' }}
               onFocus={onFocus}
               onBlur={onBlur}
             />
@@ -377,7 +499,7 @@ export function PensionerFormModal({ initial, onSubmit, onClose, isLoading }: Pr
               type="button"
               onClick={onClose}
               className="flex-1 cursor-pointer transition-all duration-150"
-              style={{ height: '48px', borderRadius: '999px', border: '1.5px solid #6366F1', color: '#6366F1', backgroundColor: 'transparent', fontSize: '14px', fontWeight: 600 }}
+              style={{ height: '46px', borderRadius: '999px', border: '1.5px solid #6366F1', color: '#6366F1', backgroundColor: 'transparent', fontSize: '14px', fontWeight: 600 }}
               onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#EEF2FF' }}
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
             >
@@ -387,11 +509,11 @@ export function PensionerFormModal({ initial, onSubmit, onClose, isLoading }: Pr
               type="submit"
               disabled={isLoading}
               className="flex-1 flex items-center justify-center gap-2 transition-all duration-150"
-              style={{ height: '48px', borderRadius: '999px', border: 'none', backgroundColor: '#6366F1', color: '#ffffff', fontSize: '14px', fontWeight: 600, opacity: isLoading ? 0.6 : 1, cursor: isLoading ? 'not-allowed' : 'pointer' }}
+              style={{ height: '46px', borderRadius: '999px', border: 'none', backgroundColor: '#6366F1', color: '#ffffff', fontSize: '14px', fontWeight: 600, opacity: isLoading ? 0.6 : 1, cursor: isLoading ? 'not-allowed' : 'pointer' }}
               onMouseEnter={e => { if (!isLoading) e.currentTarget.style.backgroundColor = '#4F46E5' }}
               onMouseLeave={e => { if (!isLoading) e.currentTarget.style.backgroundColor = '#6366F1' }}
             >
-              <Save style={{ width: '16px', height: '16px' }} />
+              <Save style={{ width: '15px', height: '15px' }} />
               {isLoading ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Registrar'}
             </button>
           </div>

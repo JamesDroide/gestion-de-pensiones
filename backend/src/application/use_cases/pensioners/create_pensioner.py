@@ -28,7 +28,14 @@ class CreatePensionerUseCase:
             id_code=dto.id_code,
             payment_mode=dto.payment_mode,
             no_pension_rules=dto.no_pension_rules,
+            no_pension_price_mode=dto.no_pension_price_mode,
             phone=dto.phone,
             notes=dto.notes,
+            custom_price_1_meal=dto.custom_price_1_meal,
+            custom_price_2_meals=dto.custom_price_2_meals,
+            custom_price_3_meals=dto.custom_price_3_meals,
+            custom_breakfast_price=dto.custom_breakfast_price,
+            custom_lunch_price=dto.custom_lunch_price,
+            custom_dinner_price=dto.custom_dinner_price,
         )
         return await self._repo.create(pensioner)
